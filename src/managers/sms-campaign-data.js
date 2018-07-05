@@ -22,6 +22,21 @@ class SMSCampaignData {
     return results
   }
 
+  async updateCampaignProcessed(campaignTransaction) {
+    let rows
+
+    rows = await knew
+      .table(`${CAMPAIGN_TRANSACTION_TABLE}`)
+      .whereIn('id_submission', campaignTransaction.mobileNumbers)
+      .update({
+        'processed': 1,
+        'status': 1,
+        'reference': 'test'
+      })
+
+    return rows
+  }
+
   toPhoneNumber(row) {
     if (!row) return null
 
