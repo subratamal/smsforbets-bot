@@ -9,10 +9,10 @@ const {
 
 export default class SMSCampaignManager {
   async init() {
-    const results = await SMSCampaignData.fetchUnprocessedCampaigns()
-    console.log(results)
+    const campaignTransactions = await SMSCampaignData.fetchUnprocessedCampaigns()
+    console.log(campaignTransactions)
 
-    this.smsCampaignScraper = new SMSCampaignScraper()
+    this.smsCampaignScraper = new SMSCampaignScraper(campaignTransactions)
     this.smsCampaignScraper.init(puppeteerMeta, pageMeta)
   }
 }
