@@ -9,9 +9,13 @@ let entry = path.resolve('./src/index.js')
 
 module.exports = {
   entry,
+  output: {
+    filename: 'bundle.js'
+  },
   target: 'node',
   // Generate sourcemaps for proper error messages
   devtool: 'source-map',
+  watch: true,
   // Since 'aws-sdk' is not compatible with webpack,
   // we exclude all node dependencies
   externals: [nodeExternals()],
@@ -26,14 +30,19 @@ module.exports = {
   },
   // Run babel on all .js files and skip those in node_modules
   module: {
-    rules: [
-      {
-        test: /\.js$/,
-        loader: 'babel-loader',
-        include: __dirname,
-        exclude: /node_modules/,
+    rules: [{
+      test: /\.js$/,
+      loader: 'babel-loader',
+      options: {
+        presets: ['env']
       },
-    ],
+      include: __dirname,
+      exclude: /node_modules/,
+    }, {
+      test: /\.json$/,
+      loader: "json",
+    },
+  ],
   },
   resolve: {
     alias: {

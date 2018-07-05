@@ -1,4 +1,4 @@
-{
+export default {
   "puppeteerMeta": {
     "executablePath": "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
     "userDataDir": "/Users/subrat/Works.Pers/Application/web-scrapping/scrape/puppeteer-data-dir",
