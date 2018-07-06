@@ -11,6 +11,9 @@
 ### Screenshots
 - `images` in the root folder
 
+### Logs
+- `data/logs` in the root folder
+
 ### Run
 
 #### Run with node
