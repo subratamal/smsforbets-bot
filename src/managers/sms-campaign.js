@@ -1,9 +1,6 @@
 import SMSCampaignScraper from './../sms-campaign-scraper'
 import config from './../config/dev.config'
 import SMSCampaignData from './../managers/sms-campaign-data'
-// import Logger from './../utils/logger'
-
-// const logger = Logger('sms_campaign_manager_logger')
 
 const {
   puppeteerMeta,
