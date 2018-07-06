@@ -6,10 +6,10 @@ import puppeteer from 'puppeteer'
 import {
   EventEmitter 
 } from 'events'
-import Logger from './utils/logger'
+// import Logger from './utils/logger'
 import SMSCampaignManager from './managers/sms-campaign-data'
 
-const logger = Logger('sms_campaign_logger')
+// const logger = Logger('sms_campaign_logger')
 
 const file = path.resolve('src/config.yaml')
 const text = fs.readFileSync(file, 'utf8')
@@ -21,12 +21,11 @@ const resolution = {
 }
 
 export default class SMSCampaignScraper extends EventEmitter {
-  constructor(campaignTransactions = [], browser = {}, page = {}, ) {
+  constructor({ campaignTransactions = [], logger }) {
     super();
-    this.browser = browser;
-    this.page = page;
     this.site = jsonConfig['site_meta']
     this.campaignTransactions = campaignTransactions
+    this.logger = logger
   }
 
   async createBrowser(options = {}) {
@@ -45,7 +44,6 @@ export default class SMSCampaignScraper extends EventEmitter {
     const browserOptions = Object.assign({}, defaultOptions, options)
 
     this.browser = await puppeteer.launch(browserOptions)
-    logger.info(`Browser instance created. Version: ${await this.browser.version()}`)
   }
 
   async closeBrowser() {
@@ -83,23 +81,35 @@ export default class SMSCampaignScraper extends EventEmitter {
       setBypassCSP,
     } = pageOptions;
 
-    await this.createBrowser({
+    let [ browserErr ] = await to(this.createBrowser({
       headless,
       userDataDir,
       executablePath,
-    });
+    }))
 
-    this.page = await this.createPage({
+    if (browserErr) {
+      this.logger.info(browserErr, `Failed creating Browser instance. Gracefully shutting down the SMSforBets Campaign scraper script!`)
+      return
+    }
+    this.logger.info(`Browser instance created. Version: ${await this.browser.version()}`)
+
+    let [ pageErr, page ] = await to(this.createPage({
       width,
       height,
       setBypassCSP,
-    });
+    }))
+
+    if (pageErr) {
+      this.logger.info(pageErr, `Failed creating Page instance. Gracefully shutting down the SMSforBets Campaign scraper script!`)
+      return
+    }
+    this.page = page
+    this.logger.info(`Page instance created.`)
 
     // Login
-    try {
-      await this.login(this.page)
-    } catch (err) {
-      logger.info('Login failed. Exiting')
+    let [ loginErr ] = await to(this.login(this.page))
+    if (loginErr) {
+      this.logger.info(loginErr, 'Login process failed. Gracefully shutting down the SMSforBets Campaign scraper script!')
       await this.closeBrowser()
     }
 
@@ -113,7 +123,7 @@ export default class SMSCampaignScraper extends EventEmitter {
 
       await this.scrape()
     } catch (err) {
-      logger.info('exiting due to scraping error. remaining campaigns will be processed in the next run')
+      this.logger.info(err, 'Exiting due to scraping error. Remaining campaigns will be processed in the next run.')
     } finally {
       await this.closeBrowser()
     }
@@ -139,19 +149,24 @@ export default class SMSCampaignScraper extends EventEmitter {
         await page.setCookie(...this.cookies)
         await page.goto(this.site.post_url)
       }
-      await this.fillDetailsPages(page, campaignTransaction)
-      const dataSubmitted = await this.fillApprovalPage(page)
+
+      let [ detailedPageErr ] = await to(this.fillDetailsPages(page, campaignTransaction))
+      if (detailedPageErr) {
+        this.logger.info(detailedPageErr, `Detailed page processing failed for campaign id ${campaignTransaction.id}. Will be retried in the next run.`)
+        return
+      }
+
+      const dataSubmitted = await this.fillApprovalPage(page, campaignTransaction)
       if (!dataSubmitted) {
         return
       }
 
-      let err, dbUpdated;
-      [err, dbUpdate] = to(await SMSCampaignManager.updateCampaignProcessed(campaignTransaction))
-      if (err) {
-        logger.info(`campaign status update failed for campaign Id: ${campaignTransaction.id}`)
+      let [dbUpdateErr, dbUpdate] = await to(SMSCampaignManager.updateCampaignProcessed(campaignTransaction))
+      if (dbUpdateErr) {
+        this.logger.info(`Campaign database update failed for campaign Id: ${campaignTransaction.id}`)
+        return
       }
-      logger.info(`campaign status updated successfully for campaign Id: ${campaignTransaction.id} with mobile numbers
-        ${campaignTransaction.mobileNumbers}`)
+      this.logger.info(`Campaign database updated successfully for campaign Id: ${campaignTransaction.id}`)
 
       await page.deleteCookie(...this.cookies)
     })
@@ -166,20 +181,24 @@ export default class SMSCampaignScraper extends EventEmitter {
     await page.waitForNavigation()
   }
 
-  async fillApprovalPage(page) {
-    await page.click('#ortaDetay > form > div:nth-child(4) > div:nth-child(3) > input')
+  async fillApprovalPage(page, campaignTransaction) {
+    let [ approvalSubmitClickErr ]  = await to(page.click('#ortaDetay > form > div:nth-child(4) > div:nth-child(3) > input'))
+    if (approvalSubmitClickErr) {
+      this.logger.info(approvalSubmitClickErr, `Approval page submit button click failed for campaign id ${campaignTransaction.id}. Will be retried in the next run.`)
+      return
+    }
     await page.waitForNavigation()
 
     let dataSubmitted = true
-    let [err] = await to(page.waitForFunction(`document.body.innerText.includes('Mesajınızın gönderimi başarıyla gerçekleşmiştir')`, {
+    let [ verificationErr ] = await to(page.waitForFunction(`document.body.innerText.includes('Mesajınızın gönderimi başarıyla gerçekleşmiştir')`, {
       timeout: 5000
     }))
 
-    if (err) {
+    if (verificationErr) {
       dataSubmitted = false
-      logger.info(err)
+      this.logger.info(verificationErr, `Campaign details failed for campaign Id ${campaignTransaction.id}. Form submit didn't return success message!`)
     } else {
-      logger.info(`campaign details submitted successfully for campaign Id ${campaignTransaction.id} with message text::
+      this.logger.info(`Campaign details submitted successfully for campaign Id ${campaignTransaction.id} with message text::
     '${campaignTransaction.messageText}' and mobile numbers:: ${campaignTransaction.mobileNumbers}`)
     }
 

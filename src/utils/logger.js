@@ -15,6 +15,7 @@ function errorSerializer(error) {
   const data = {
     message: error.message,
     name: error.name,
+    stack: getFullErrorStack(error),
     code: error.code,
     signal: error.signal,
   }
@@ -68,6 +69,12 @@ function createLogger(name, options = {}) {
 
   logger.sub = (...args) => createSubLogger(logger, ...args)
   return logger
+}
+
+function getFullErrorStack(error) {
+  let stack = error.stack || error.toString()
+  stack += `\nCaused by: ${stack}`
+  return stack
 }
 
 export default createLogger
