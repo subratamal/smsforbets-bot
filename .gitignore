@@ -68,3 +68,4 @@ puppeteer-data-dir/
 downloads/
 dist/
 images/
+.vscode/
