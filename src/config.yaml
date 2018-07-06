@@ -9,3 +9,6 @@ site_meta:
   username: 8503352153
   password: 4pv21w
   post_url: http://www.dakikpanel1.com/toplumesaj/toplumesajgonder
+  optimize_resource_fetch: false
+app_config:
+  page_size: 10
