@@ -1,17 +1,10 @@
 export default {
   "puppeteerMeta": {
-    "executablePath": "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-    "userDataDir": "/Users/subrat/Works.Pers/Application/web-scrapping/scrape/puppeteer-data-dir",
-    "headless": false
+    "headless": true
   },
   "pageMeta": {
-    "width": 1500,
-    "height": 1024,
+    "width": 1600,
+    "height": 1200,
     "setBypassCSP": true
-  },
-  "courseScrapeMeta": {
-    "page": {
-      "PAGE_SIZE": 12
-    }
   }
 }

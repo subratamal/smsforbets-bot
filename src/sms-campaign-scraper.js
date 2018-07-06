@@ -6,10 +6,7 @@ import puppeteer from 'puppeteer'
 import {
   EventEmitter 
 } from 'events'
-// import Logger from './utils/logger'
 import SMSCampaignManager from './managers/sms-campaign-data'
-
-// const logger = Logger('sms_campaign_logger')
 
 const file = path.resolve('src/config.yaml')
 const text = fs.readFileSync(file, 'utf8')
@@ -21,11 +18,18 @@ const resolution = {
 }
 
 export default class SMSCampaignScraper extends EventEmitter {
-  constructor({ campaignTransactions = [], logger }) {
+  constructor({
+    campaignTransactions = [],
+    runId,
+    logger
+  }) {
     super();
     this.site = jsonConfig['site_meta']
     this.campaignTransactions = campaignTransactions
+    this.runId = runId
     this.logger = logger
+
+    fs.ensureDirSync(`./images/${this.runId}`)
   }
 
   async createBrowser(options = {}) {
@@ -33,6 +37,7 @@ export default class SMSCampaignScraper extends EventEmitter {
       '--disable-gpu',
       `--window-size=${resolution.x},${resolution.y}`,
       '--no-sandbox',
+      '--disable-setuid-sandbox'
     ]
 
     const defaultOptions = {
@@ -47,7 +52,9 @@ export default class SMSCampaignScraper extends EventEmitter {
   }
 
   async closeBrowser() {
-    await this.browser.close();
+    if (this.browser) {
+      await this.browser.close()
+    }
   }
 
   async createPage(options) {
@@ -63,6 +70,19 @@ export default class SMSCampaignScraper extends EventEmitter {
       height,
     });
     await page.setBypassCSP(setBypassCSP);
+    // await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36')
+
+    if (this.site['optimize_resource_fetch']) {
+      await page.setRequestInterception(true)
+      const block_ressources = ['image', 'stylesheet', 'media', 'font', 'texttrack', 'object', 'beacon', 'csp_report', 'imageset']
+      page.on('request', request => {
+        if (block_ressources.indexOf(request.resourceType()) > 0)
+          request.abort()
+        else
+          request.continue()
+      })
+    }
+
     return page
   }
 
@@ -81,7 +101,7 @@ export default class SMSCampaignScraper extends EventEmitter {
       setBypassCSP,
     } = pageOptions;
 
-    let [ browserErr ] = await to(this.createBrowser({
+    let [browserErr] = await to(this.createBrowser({
       headless,
       userDataDir,
       executablePath,
@@ -93,7 +113,7 @@ export default class SMSCampaignScraper extends EventEmitter {
     }
     this.logger.info(`Browser instance created. Version: ${await this.browser.version()}`)
 
-    let [ pageErr, page ] = await to(this.createPage({
+    let [pageErr, page] = await to(this.createPage({
       width,
       height,
       setBypassCSP,
@@ -107,7 +127,7 @@ export default class SMSCampaignScraper extends EventEmitter {
     this.logger.info(`Page instance created.`)
 
     // Login
-    let [ loginErr ] = await to(this.login(this.page))
+    let [loginErr] = await to(this.login(this.page))
     if (loginErr) {
       this.logger.info(loginErr, 'Login process failed. Gracefully shutting down the SMSforBets Campaign scraper script!')
       await this.closeBrowser()
@@ -120,6 +140,7 @@ export default class SMSCampaignScraper extends EventEmitter {
       await this.page.goto(this.site.post_url, {
         waitUntil: 'networkidle2',
       })
+      await page.screenshot({path: path.resolve(`images/${this.runId}/post_page.png`)})
 
       await this.scrape()
     } catch (err) {
@@ -132,17 +153,18 @@ export default class SMSCampaignScraper extends EventEmitter {
   }
 
   async login(page) {
-    await page.goto(this.site.login_url, {
-      waitUntil: 'networkidle2',
-    });
-    await page.type('#loginAreax > div:nth-child(3) > div > input', String(this.site.username));
-    await page.type('#loginAreax > div:nth-child(4) > div > input', this.site.password);
-    await page.click('#girisyap');
-    await page.waitForNavigation();
+    await page.goto(this.site.login_url)
+    await page.screenshot({path: path.resolve(`images/${this.runId}/login.png`)})
+    await this.enterText(page, '#loginAreax > div:nth-child(3) > div > input', String(this.site.username))
+    await this.enterText(page, '#loginAreax > div:nth-child(4) > div > input', this.site.password)
+    await page.click('#girisyap')
+    await page.waitForNavigation()
   }
 
   async scrape() {
     const promises = this.campaignTransactions.map(async (campaignTransaction, idx) => {
+      fs.ensureDirSync(`./images/${this.runId}/${campaignTransaction.id}`)
+
       let page = this.page
       if (idx > 0) {
         page = await this.createPage(this.pageOptions)
@@ -150,9 +172,9 @@ export default class SMSCampaignScraper extends EventEmitter {
         await page.goto(this.site.post_url)
       }
 
-      let [ detailedPageErr ] = await to(this.fillDetailsPages(page, campaignTransaction))
+      let [detailedPageErr] = await to(this.fillDetailsPages(page, campaignTransaction))
       if (detailedPageErr) {
-        this.logger.info(detailedPageErr, `Detailed page processing failed for campaign id ${campaignTransaction.id}. Will be retried in the next run.`)
+        this.logger.info({err: detailedPageErr, campaignId: campaignTransaction.id}, `Detailed page processing failed. Will be retried in the next run.`)
         return
       }
 
@@ -163,10 +185,10 @@ export default class SMSCampaignScraper extends EventEmitter {
 
       let [dbUpdateErr, dbUpdate] = await to(SMSCampaignManager.updateCampaignProcessed(campaignTransaction))
       if (dbUpdateErr) {
-        this.logger.info(`Campaign database update failed for campaign Id: ${campaignTransaction.id}`)
+        this.logger.info({campaignId: campaignTransaction.id}, `Campaign database update failed.`)
         return
       }
-      this.logger.info(`Campaign database updated successfully for campaign Id: ${campaignTransaction.id}`)
+      this.logger.info({campaignId: campaignTransaction.id}, `Campaign database updated successfully.`)
 
       await page.deleteCookie(...this.cookies)
     })
@@ -175,33 +197,59 @@ export default class SMSCampaignScraper extends EventEmitter {
   }
 
   async fillDetailsPages(page, campaignTransaction) {
-    await page.type('#frmMesajGonder > div:nth-child(3) > div.panel-body > div > textarea', String(campaignTransaction.mobileNumbers))
-    await page.type('#mesaj', campaignTransaction.messageText)
+    await this.enterText(page, '#frmMesajGonder > div:nth-child(3) > div.panel-body > div > textarea', String(campaignTransaction.mobileNumbers))
+    await this.enterText(page, '#mesaj', campaignTransaction.messageText)
+    await page.screenshot({path: path.resolve(`images/${this.runId}/${campaignTransaction.id}/detailed_page_info.png`)})
     await page.click('#btnSubmit')
     await page.waitForNavigation()
   }
 
   async fillApprovalPage(page, campaignTransaction) {
-    let [ approvalSubmitClickErr ]  = await to(page.click('#ortaDetay > form > div:nth-child(4) > div:nth-child(3) > input'))
+    await page.screenshot({path: path.resolve(`images/${this.runId}/${campaignTransaction.id}/approval_page_before.png`)})
+    await page.waitForSelector('#ortaDetay > form > div:nth-child(4) > div:nth-child(3) > input')
+
+    let [approvalSubmitClickErr] = await to(page.click('#ortaDetay > form > div:nth-child(4) > div:nth-child(3) > input'))
     if (approvalSubmitClickErr) {
-      this.logger.info(approvalSubmitClickErr, `Approval page submit button click failed for campaign id ${campaignTransaction.id}. Will be retried in the next run.`)
+      this.logger.info({err: approvalSubmitClickErr, campaignId: campaignTransaction.id}, `Approval page submit button click failed. Will be retried in the next run.`)
       return
     }
-    await page.waitForNavigation()
+
+    // await page.waitForNavigation({
+    //   waitUntil: 'domcontentloaded'
+    // })
+    await page.screenshot({path: path.resolve(`images/${this.runId}/${campaignTransaction.id}/approval_page_after_submit.png`)})
 
     let dataSubmitted = true
-    let [ verificationErr ] = await to(page.waitForFunction(`document.body.innerText.includes('Mesajınızın gönderimi başarıyla gerçekleşmiştir')`, {
+    let [verificationErr] = await to(page.waitForFunction(`document.body.innerText.includes('Mesajınızın gönderimi başarıyla gerçekleşmiştir')`, {
       timeout: 5000
     }))
 
     if (verificationErr) {
       dataSubmitted = false
-      this.logger.info(verificationErr, `Campaign details failed for campaign Id ${campaignTransaction.id}. Form submit didn't return success message!`)
+      this.logger.info({err: verificationErr, campaignId: campaignTransaction.id}, `Campaign details failed. Form submit didn't return success message!`)
     } else {
-      this.logger.info(`Campaign details submitted successfully for campaign Id ${campaignTransaction.id} with message text::
-    '${campaignTransaction.messageText}' and mobile numbers:: ${campaignTransaction.mobileNumbers}`)
+      this.logger.info({campaignId: campaignTransaction.id, messageText: campaignTransaction.messageText, mobileNumbers: campaignTransaction.mobileNumbers}, `Campaign details submitted successfully.`)
     }
 
     return dataSubmitted
+  }
+
+  async enterText(page, selector, text) {
+    await page.click(selector)
+    await page.keyboard.type(text)
+  }
+
+  async clickNavigate (page, selector, waitFor = -1) {
+    await page.click(selector)
+    if (waitFor >= 0) {
+      await page.waitFor(waitFor * 1000)
+    }
+    else {
+      await page.waitForNavigation()
+    }
+  }
+
+  async destroy() {
+    await this.closeBrowser()
   }
 }

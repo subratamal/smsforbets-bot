@@ -15,7 +15,7 @@ function errorSerializer(error) {
   const data = {
     message: error.message,
     name: error.name,
-    stack: getFullErrorStack(error),
+    // stack: getFullErrorStack(error),
     code: error.code,
     signal: error.signal,
   }

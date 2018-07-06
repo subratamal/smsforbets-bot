@@ -11,7 +11,8 @@ const {
 } = config
 
 export default class SMSCampaignManager {
-  constructor({ logger }) {
+  constructor({ runId, logger }) {
+    this.runId = runId
     this.logger = logger
   }
 
@@ -23,10 +24,14 @@ export default class SMSCampaignManager {
     }
 
     try {
-      this.smsCampaignScraper = new SMSCampaignScraper({ campaignTransactions, logger: this.logger })
+      this.smsCampaignScraper = new SMSCampaignScraper({ campaignTransactions, runId: this.runId, logger: this.logger })
       await this.smsCampaignScraper.init(puppeteerMeta, pageMeta)
     } catch (err) {
       this.logger.info(err, 'Something went wrong. SMSBetsCampaign Scraper manager died apruptly. Please try again. If the problem persists, contact admin.')
     }
+  }
+
+  async destroy() {
+    await this.smsCampaignScraper.destroy()
   }
 }
