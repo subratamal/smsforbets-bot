@@ -5,14 +5,14 @@ import uuidv4 from 'uuid/v4'
 
 let IS_CURRENTLY_PROCESSING = false
 
-console.log('Starting SMSForBetsCampaign Bot...')
+console.log('Starting SMSForBets.com Campaign Bot ...')
 
 run()
 cron.schedule('* * * * *', run)
 
 async function run() {
   const _runId = uuidv4()
-  const logger = Logger('SMSForBetsCampaign_Bot', {
+  const logger = Logger('SMSForBets.com-Campaign-Bot', {
     data: {
       runId: _runId
     }

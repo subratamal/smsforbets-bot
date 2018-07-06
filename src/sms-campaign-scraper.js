@@ -108,7 +108,7 @@ export default class SMSCampaignScraper extends EventEmitter {
     }))
 
     if (browserErr) {
-      this.logger.info(browserErr, `Failed creating Browser instance. Gracefully shutting down the SMSforBets Campaign scraper script!`)
+      this.logger.info(browserErr, `Failed creating Browser instance. Gracefully shutting down the SMSForBets.com Campaign Bot!`)
       return
     }
     this.logger.info(`Browser instance created. Version: ${await this.browser.version()}`)
@@ -120,7 +120,7 @@ export default class SMSCampaignScraper extends EventEmitter {
     }))
 
     if (pageErr) {
-      this.logger.info(pageErr, `Failed creating Page instance. Gracefully shutting down the SMSforBets Campaign scraper script!`)
+      this.logger.info(pageErr, `Failed creating Page instance. Gracefully shutting down the SMSForBets.com Campaign Bot!`)
       return
     }
     this.page = page
@@ -129,7 +129,7 @@ export default class SMSCampaignScraper extends EventEmitter {
     // Login
     let [loginErr] = await to(this.login(this.page))
     if (loginErr) {
-      this.logger.info(loginErr, 'Login process failed. Gracefully shutting down the SMSforBets Campaign scraper script!')
+      this.logger.info(loginErr, 'Login process failed. Gracefully shutting down the SMSForBets.com Campaign Bot!')
       await this.closeBrowser()
     }
 

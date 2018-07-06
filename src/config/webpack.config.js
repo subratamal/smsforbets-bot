@@ -15,7 +15,7 @@ module.exports = {
   target: 'node',
   // Generate sourcemaps for proper error messages
   devtool: 'source-map',
-  watch: true,
+  watch: false,
   // Since 'aws-sdk' is not compatible with webpack,
   // we exclude all node dependencies
   externals: [nodeExternals()],
