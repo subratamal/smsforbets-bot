@@ -65,8 +65,8 @@ class SMSCampaignData {
     return {
       id: row.id,
       messageText: row.message_text,
-      mobileNumbers: '905305411415'
-      // mobileNumbers: row.mobile_numbers.split(',').slice(0, 1).join(',')
+      // mobileNumbers: '905305411415'
+      mobileNumbers: row.mobile_numbers
     }
   }
 
