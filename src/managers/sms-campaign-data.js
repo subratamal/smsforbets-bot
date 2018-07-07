@@ -49,8 +49,7 @@ class SMSCampaignData {
         )
         .update({
           'processed': 1,
-          'status': 1,
-          'reference': 'test'
+          'status': 1
         })
     } catch (err) {
       console.log(err)
@@ -65,7 +64,6 @@ class SMSCampaignData {
     return {
       id: row.id,
       messageText: row.message_text,
-      // mobileNumbers: '905305411415'
       mobileNumbers: row.mobile_numbers
     }
   }

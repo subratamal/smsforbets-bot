@@ -18,16 +18,26 @@ async function run() {
     }
   })
 
-  if (!IS_CURRENTLY_PROCESSING) {
-    IS_CURRENTLY_PROCESSING = true
-    const smsCampaignManager = new SMSCampaignManager({
-      runId: _runId,
-      logger
-    })
-
-    logger.info(`Starting run ${_runId}`)
-    await smsCampaignManager.init()
-    logger.info(`Ending run ${_runId}`)
+  process.on('unhandledRejection', (reason, p) => {
+    logger.error({ err: reason, p }, 'unhandledRejection run')
     IS_CURRENTLY_PROCESSING = false
+  })
+
+  if (!IS_CURRENTLY_PROCESSING) {
+    try {
+      IS_CURRENTLY_PROCESSING = true
+      const smsCampaignManager = new SMSCampaignManager({
+        runId: _runId,
+        logger
+      })
+
+      logger.info(`Starting run ${_runId}`)
+      await smsCampaignManager.init()
+      logger.info(`Ending run ${_runId}`)
+    } catch(err) {
+      logger.error(err, 'uncaught error')
+    } finally {
+      IS_CURRENTLY_PROCESSING = false
+    }
   }
 }
