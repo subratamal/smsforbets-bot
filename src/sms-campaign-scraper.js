@@ -178,7 +178,7 @@ export default class SMSCampaignScraper extends EventEmitter {
         return
       }
 
-      // const dataSubmitted = await this.fillApprovalPage(page, campaignTransaction)
+      const dataSubmitted = await this.fillApprovalPage(page, campaignTransaction)
       if (!dataSubmitted) {
         return
       }
