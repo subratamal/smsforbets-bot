@@ -17,7 +17,10 @@ class SMSCampaignData {
     let rows
 
     try {
-      rows = await knex
+      // await knex
+      //   .schema.raw('SET GLOBAL group_concat_max_len = 9999999')
+
+      const query = knex
         .table(`${CAMPAIGN_TABLE} as ss`)
         .leftJoin(`${CAMPAIGN_TRANSACTION_TABLE} as ssn`, `ss.id`, `ssn.id_submission`)
         .where(`ssn.processed`, '=', 0)
@@ -28,6 +31,9 @@ class SMSCampaignData {
           knex.raw(`GROUP_CONCAT(ssn.mobile_number) mobile_numbers`)
         )
         .limit(pageSize)
+
+      // console.log(query.toSQL().toNative())
+      rows = await query
     } catch (err) {
       console.log(err)
     }
@@ -65,6 +71,8 @@ class SMSCampaignData {
       id: row.id,
       messageText: row.message_text,
       mobileNumbers: row.mobile_numbers
+      // [ ...row.mobile_numbers.split(','), ...row.mobile_numbers.split(','), ...row.mobile_numbers.split(',') ].join(',')
+      //.split(',').slice(0,1).join(',')
     }
   }
 

@@ -178,7 +178,7 @@ export default class SMSCampaignScraper extends EventEmitter {
         return
       }
 
-      const dataSubmitted = await this.fillApprovalPage(page, campaignTransaction)
+      // const dataSubmitted = await this.fillApprovalPage(page, campaignTransaction)
       if (!dataSubmitted) {
         return
       }
@@ -197,11 +197,22 @@ export default class SMSCampaignScraper extends EventEmitter {
   }
 
   async fillDetailsPages(page, campaignTransaction) {
-    await this.enterText(page, '#frmMesajGonder > div:nth-child(3) > div.panel-body > div > textarea', String(campaignTransaction.mobileNumbers))
+    await page.evaluate((campaignTransaction) => {
+      const $textbox = document.querySelector('#frmMesajGonder > div:nth-child(3) > div.panel-body > div > textarea')
+      if (!$textbox) {
+        throw new Error('no textbox to enter mobile numbers')
+      }
+      $textbox.value = campaignTransaction.mobileNumbers
+    }, campaignTransaction)
+
+    await page.waitFor(1000)
+
     await this.enterText(page, '#mesaj', campaignTransaction.messageText)
     await page.screenshot({path: path.resolve(`images/${this.runId}/${campaignTransaction.id}/detailed_page_info.png`)})
+
     await page.click('#btnSubmit')
     await page.waitForNavigation()
+    await page.waitFor(1000)
   }
 
   async fillApprovalPage(page, campaignTransaction) {
@@ -214,9 +225,6 @@ export default class SMSCampaignScraper extends EventEmitter {
       return
     }
 
-    // await page.waitForNavigation({
-    //   waitUntil: 'domcontentloaded'
-    // })
     await page.screenshot({path: path.resolve(`images/${this.runId}/${campaignTransaction.id}/approval_page_after_submit.png`)})
 
     let dataSubmitted = true

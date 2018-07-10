@@ -1,0 +1,14 @@
+db:
+  host: 127.0.0.1
+  port: 3306
+  username: root
+  db_name: smsforbets
+  password: abcdef123
+site_meta:
+  login_url: http://www.dakikpanel1.com/login
+  username: 456575367
+  password: sdsdfd
+  post_url: http://www.dakikpanel1.com/toplumesaj/toplumesajgonder
+  optimize_resource_fetch: false
+app_config:
+  page_size: 10
