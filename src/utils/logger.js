@@ -63,8 +63,8 @@ function createLogger(name, options = {}) {
     level: 'info',
     type: 'rotating-file',
     path: file,
-    period: '1h',
-    count: 15,
+    period: '1d',
+    count: 4,
   })
 
   logger.sub = (...args) => createSubLogger(logger, ...args)
