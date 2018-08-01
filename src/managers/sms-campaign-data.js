@@ -24,6 +24,7 @@ class SMSCampaignData {
         .table(`${CAMPAIGN_TABLE} as ss`)
         .leftJoin(`${CAMPAIGN_TRANSACTION_TABLE} as ssn`, `ss.id`, `ssn.id_submission`)
         .where(`ssn.processed`, '=', 0)
+        .andWhere(`ss.provider`, '=', `App\\Services\\DakiSmsService`)
         .groupBy(`ss.id`, `ss.message_text`)
         .select(
           `ss.id`,
